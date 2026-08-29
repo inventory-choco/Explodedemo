@@ -8,7 +8,10 @@ const meterEnd = document.querySelector('#meter-end');
 
 let frames = [];
 let currentFrame = -1;
-let ticking = false;
+let targetFrame = 0;
+let targetProgress = 0;
+let animating = false;
+let scrollScheduled = false;
 
 const frameNumber = name => Number(name.match(/frame_(\d+)\.jpg$/i)?.[1] || 0);
 
@@ -45,26 +48,42 @@ async function discoverConsecutiveFrames() {
 }
 
 function updateSequence() {
-  if (!frames.length) { ticking = false; return; }
+  scrollScheduled = false;
+  if (!frames.length) return;
   const rect = sequence.getBoundingClientRect();
   const distance = sequence.offsetHeight - window.innerHeight;
   const progress = Math.min(1, Math.max(0, -rect.top / distance));
-  const frameIndex = Math.min(frames.length - 1, Math.round(progress * (frames.length - 1)));
+  targetProgress = progress;
+  targetFrame = Math.min(frames.length - 1, Math.round(progress * (frames.length - 1)));
+  if (!animating) {
+    animating = true;
+    requestAnimationFrame(animateFrames);
+  }
+}
 
-  if (frameIndex !== currentFrame) {
-    currentFrame = frameIndex;
-    productFrame.src = frames[frameIndex];
-    ambientFrame.src = frames[frameIndex];
+function animateFrames() {
+  if (currentFrame !== targetFrame) {
+    currentFrame += currentFrame < targetFrame ? 1 : -1;
+    productFrame.src = frames[currentFrame];
+    ambientFrame.src = frames[currentFrame];
   }
 
-  introCopy.style.opacity = Math.max(0, 1 - progress * 4.5);
-  finalCopy.style.opacity = Math.max(0, Math.min(1, (progress - 0.73) * 5));
-  meterFill.style.transform = 'scaleX(' + progress + ')';
-  ticking = false;
+  introCopy.style.opacity = Math.max(0, 1 - targetProgress * 4.5);
+  finalCopy.style.opacity = Math.max(0, Math.min(1, (targetProgress - 0.73) * 5));
+  meterFill.style.transform = 'scaleX(' + targetProgress + ')';
+
+  if (currentFrame !== targetFrame) {
+    requestAnimationFrame(animateFrames);
+  } else {
+    animating = false;
+  }
 }
 
 function requestUpdate() {
-  if (!ticking) { ticking = true; requestAnimationFrame(updateSequence); }
+  if (!scrollScheduled) {
+    scrollScheduled = true;
+    requestAnimationFrame(updateSequence);
+  }
 }
 
 async function initializeSequence() {
@@ -79,9 +98,20 @@ async function initializeSequence() {
     return;
   }
 
-  frames.forEach(src => { const image = new Image(); image.src = src; });
+  await Promise.all(frames.map(src => new Promise(resolve => {
+    const image = new Image();
+    image.onload = async () => {
+      try { await image.decode(); } catch {}
+      resolve();
+    };
+    image.onerror = resolve;
+    image.src = src;
+  })));
+  sequence.style.height = Math.max(650, frames.length * 24) + 'vh';
   meterEnd.textContent = String(frames.length).padStart(2, '0');
-  currentFrame = -1;
+  currentFrame = 0;
+  productFrame.src = frames[0];
+  ambientFrame.src = frames[0];
   updateSequence();
 }
 

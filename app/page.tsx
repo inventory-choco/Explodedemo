@@ -2,18 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const frames = [
-  '/frames/image_03.jpg',
-  '/frames/image_02.jpg',
-  '/frames/image_04.jpg',
-  '/frames/image_05.jpg',
-  '/frames/image_06.jpg',
-  '/frames/image_07.jpg',
-  '/frames/image_08.jpg',
-  '/frames/image_09.jpg',
-  '/frames/image_10.jpg',
-  '/frames/image_11.jpg',
-];
+const frames = Array.from(
+  { length: 31 },
+  (_, index) => `/IMAGES/frame_${String(index + 1).padStart(4, '0')}.jpg`,
+);
 
 export default function Home() {
   const sequenceRef = useRef<HTMLElement>(null);
@@ -91,7 +83,7 @@ export default function Home() {
           </div>
 
           <div className="sequence-meter" aria-hidden="true">
-            <span>01</span><div><i style={{ transform: `scaleX(${progress})` }} /></div><span>11</span>
+            <span>01</span><div><i style={{ transform: `scaleX(${progress})` }} /></div><span>{frames.length}</span>
           </div>
         </div>
       </section>
